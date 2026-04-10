@@ -1,0 +1,64 @@
+﻿# src/train_model_tfidf.py
+"""
+Train a simple Logistic Regression Classifier on TF-IDF features.
+Usage:
+     python src/train_model_tfidf.py data/clean/cleaned_texts.csv
+"""
+
+import sys
+import os
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import joblib
+
+
+def train_model(input_path):
+    """Trains a model using data from the given input path and returns the trained model."""
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("features", exist_ok=True)
+
+    df = pd.read_csv(input_path)
+
+    # assuming the data has a 'label' column (1=positive, 0=negative etc)
+    if "label" not in df.columns:
+        raise ValueError(
+            "Input CSV must have a 'label' column (0/1 or text categories)."
+        )
+
+    # load TF-IDF ("features/tfidf_vectorizer.pkl")
+    vectorizer = joblib.load("features/tfidf_vectorizer.pkl")
+
+    x = vectorizer.transform(df["clean_text"].astype(str).tolist())
+    y = df["label"]
+
+    # train/test split
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=42
+    )
+
+    # Model define
+    model = LogisticRegression(max_iter=1000, solver="lbfgs")
+
+    # Train
+    model.fit(x_train, y_train)
+
+    # Predict
+    y_pred = model.predict(x_test)
+
+    # Evaluate
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Accuracy: {acc:.4f}")
+    print("\nClassification Report:\n", classification_report(y_test, y_pred))
+    print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+    # Save model
+    joblib.dump(model, "models/tfidf_logreg_model.pkl")
+    print(" Model saved to models/tfidf_logreg_model.pkl")
+
+    if __name__ == "__main__":
+        if len(sys.argv) < 2:
+            print("Usage: python src/train_model_tfidf.py data/clean/cleaned_texts.csv")
+        else:
+            train_model(sys.argv[1])
